@@ -31,8 +31,35 @@ banner() {
 # Function to print an error message in red and exit
 error_message() {
     local message="$1"
+    send_slack_notification "Error: $message" ":x:"
     printf "\n${ERROR_COLOR}Error: ${message}${COLOR_RESET}\n" >&2 # Print to stderr
     exit 1
+}
+
+# Function to send a Slack notification
+send_slack_notification() {
+    if [ "${SLACK_SEND_NOTIFICATIONS}" != "true" ]; then
+        return
+    fi
+
+    if [ -z "${SLACK_HOOK}" ]; then
+        # Do not exit here, just print a warning to stderr
+        printf "\n${ERROR_COLOR}Warning: SLACK_HOOK is not set. Cannot send Slack notification.${COLOR_RESET}\n" >&2
+        return
+    fi
+
+    local message="$1"
+    local emoji="${2:-${SLACK_LOG_EMOJI_DEFAULT:-:bell:}}"
+    local channel="${SLACK_CHANNEL}"
+
+    # Escape special characters for JSON
+    message=$(echo "$message" | sed -e 's/"/\\"/g' -e "s/'/\\'/g" -e 's/`/\\`/g')
+
+    local json_payload
+    json_payload=$(printf '{"channel": "%s", "username": "Restic Backup", "text": "%s", "icon_emoji": "%s"}' "$channel" "$message" "$emoji")
+
+    # Send notification in the background to avoid blocking the script
+    curl -s -X POST -H 'Content-type: application/json' --data "${json_payload}" "${SLACK_HOOK}" > /dev/null 2>&1 &
 }
 
 # Function to perform a backup
@@ -61,7 +88,7 @@ perform_backup() {
         if [ -z "$BACKUP_SOURCE_VALUE" ]; then
             error_message "--source-value is required for dir source-type."
         fi
-        banner "Performing backup of ${BACKUP_SOURCE_VALUE}..."
+        banner "Performing backup of ${BACKUP_SOURCE_VALUE}"
         if [ ${#BACKUP_EXCLUDE_PARAMS[@]} -gt 0 ]; then
             ${RESTIC_BASE_COMMAND} backup "${BACKUP_EXCLUDE_PARAMS[@]}" "${BACKUP_SOURCE_VALUE}"
         else
@@ -71,7 +98,7 @@ perform_backup() {
         if [ -z "$STDIN_FILENAME" ]; then
             error_message "--stdin-filename is required for stdin source-type."
         fi
-        banner "Performing backup from stdin (filename: ${STDIN_FILENAME})..."
+        banner "Performing backup from stdin (filename: ${STDIN_FILENAME})"
         # Excludes are not typically used with stdin, but restic allows them, so we pass them.
         if [ ${#BACKUP_EXCLUDE_PARAMS[@]} -gt 0 ]; then
             cat - | ${RESTIC_BASE_COMMAND} backup "${BACKUP_EXCLUDE_PARAMS[@]}" --stdin --stdin-filename "${STDIN_FILENAME}"
@@ -81,6 +108,8 @@ perform_backup() {
     else
         error_message "Invalid backup source type: ${BACKUP_SOURCE_TYPE}"
     fi
+
+    send_slack_notification "Backup completed successfully!" ":white_check_mark:"
 }
 
 # Function to display usage
@@ -207,7 +236,7 @@ RESTIC_BASE_COMMAND="restic --repo ${RESTIC_REPO}"
 # Execute action
 case "$ACTION" in
     snapshots)
-        banner "Listing repository snapshots..."
+        banner "Listing repository snapshots"
         ${RESTIC_BASE_COMMAND} snapshots
         ;;
     backup)
@@ -217,66 +246,66 @@ case "$ACTION" in
         perform_backup
         ;;
     check)
-        banner "Checking repository..."
+        banner "Checking repository"
         ${RESTIC_BASE_COMMAND} check --read-data
         ;;
     stats)
-        banner "Showing repository statistics (raw data mode)..."
+        banner "Showing repository statistics (raw data mode)"
         ${RESTIC_BASE_COMMAND} stats --mode raw-data
         ;;
     stats.latest)
-        banner "Showing statistics for the latest snapshot..."
+        banner "Showing statistics for the latest snapshot"
         ${RESTIC_BASE_COMMAND} stats latest --mode restore-size
         ;;
     cache.cleanup)
-        banner "Cleaning up cache..."
+        banner "Cleaning up cache"
         ${RESTIC_BASE_COMMAND} cache --cleanup
         ;;
     forget)
-        banner "Forgetting and pruning old snapshots..."
+        banner "Forgetting and pruning old snapshots"
         ${RESTIC_BASE_COMMAND} forget --keep-last ${RESTIC_REPO_KEEP_LAST} --keep-daily ${RESTIC_REPO_KEEP_DAILY} --keep-weekly ${RESTIC_REPO_KEEP_WEEKLY} --keep-monthly ${RESTIC_REPO_KEEP_MONTHLY} --keep-yearly ${RESTIC_REPO_KEEP_YEARLY} --prune
         ;;
     init)
-        banner "Initializing repository..."
+        banner "Initializing repository"
         ${RESTIC_BASE_COMMAND} init
         ;;
     unlock)
-        banner "Unlocking repository..."
+        banner "Unlocking repository"
         ${RESTIC_BASE_COMMAND} unlock
         ;;
     restore)
         if [ -z "$SNAPSHOT_ID" ] || [ -z "$TARGET_DIR" ]; then
             error_message "--snapshot-id and --target-dir are required for restore action."
         fi
-        banner "Restoring snapshot ${SNAPSHOT_ID} to ${TARGET_DIR}..."
+        banner "Restoring snapshot ${SNAPSHOT_ID} to ${TARGET_DIR}"
         ${RESTIC_BASE_COMMAND} restore "${SNAPSHOT_ID}" --target "${TARGET_DIR}"
         ;;
     restore.latest)
         if [ -z "$TARGET_DIR" ]; then
             error_message "--target-dir is required for restore.latest action."
         fi
-        banner "Restoring latest snapshot to ${TARGET_DIR}..."
+        banner "Restoring latest snapshot to ${TARGET_DIR}"
         ${RESTIC_BASE_COMMAND} restore latest --target "${TARGET_DIR}"
         ;;
     ls)
         if [ -z "$SNAPSHOT_ID" ]; then
             error_message "--snapshot-id is required for ls action."
         fi
-        banner "Listing files in snapshot ${SNAPSHOT_ID}..."
+        banner "Listing files in snapshot ${SNAPSHOT_ID}"
         ${RESTIC_BASE_COMMAND} ls "${SNAPSHOT_ID}"
         ;;
     find)
         if [ -z "$PATTERN" ]; then
             error_message "--pattern is required for find action."
         fi
-        banner "Finding files matching pattern ${PATTERN}..."
+        banner "Finding files matching pattern ${PATTERN}"
         ${RESTIC_BASE_COMMAND} find "${PATTERN}"
         ;;
     mount)
         if [ -z "$MOUNT_DIR" ]; then
             error_message "--mount-dir is required for mount action."
         fi
-        banner "Mounting repository to ${MOUNT_DIR}..."
+        banner "Mounting repository to ${MOUNT_DIR}"
         echo "Note: This command requires FUSE to be installed on your system." # This echo remains as it's a specific note
         ${RESTIC_BASE_COMMAND} mount "${MOUNT_DIR}"
         ;;
@@ -284,7 +313,7 @@ case "$ACTION" in
         if [ -z "$SNAPSHOT_ID1" ] || [ -z "$SNAPSHOT_ID2" ]; then
             error_message "--snapshot-id1 and --snapshot-id2 are required for diff action."
         fi
-        banner "Showing diff between ${SNAPSHOT_ID1} and ${SNAPSHOT_ID2}..."
+        banner "Showing diff between ${SNAPSHOT_ID1} and ${SNAPSHOT_ID2}"
         ${RESTIC_BASE_COMMAND} diff "${SNAPSHOT_ID1}" "${SNAPSHOT_ID2}"
         ;;
     backup-flow)
@@ -319,7 +348,7 @@ case "$ACTION" in
         ${RESTIC_BASE_COMMAND} check --read-data
 
         # 4. Forget/Prune old snapshots
-        banner "Step 4/8: Forgetting and pruning old snapshots..."
+        banner "Step 4/8: Forgetting and pruning old snapshots"
         ${RESTIC_BASE_COMMAND} forget --keep-last ${RESTIC_REPO_KEEP_LAST} --keep-daily ${RESTIC_REPO_KEEP_DAILY} --keep-weekly ${RESTIC_REPO_KEEP_WEEKLY} --keep-monthly ${RESTIC_REPO_KEEP_MONTHLY} --keep-yearly ${RESTIC_REPO_KEEP_YEARLY} --prune
 
         # 5. Clear repository cache
