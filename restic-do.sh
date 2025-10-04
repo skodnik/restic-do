@@ -14,6 +14,7 @@ SNAPSHOT_ID2=""
 BACKUP_SOURCE_TYPE="" # Will be set from .env or CLI, with a default later
 BACKUP_SOURCE_VALUE=""
 STDIN_FILENAME=""
+declare -a CLI_EXCLUDES # Array to hold --exclude patterns from CLI
 
 # Color variables for output
 DELIMITER_COLOR="\e[01;38;05;214m"
@@ -34,6 +35,54 @@ error_message() {
     exit 1
 }
 
+# Function to perform a backup
+perform_backup() {
+    # Prepare exclude parameters
+    local BACKUP_EXCLUDE_PARAMS=()
+    # From .env file (comma-separated)
+    if [ -n "${BACKUP_EXCLUDE-}" ]; then
+        IFS=',' read -ra patterns <<< "$BACKUP_EXCLUDE"
+        for pattern in "${patterns[@]}"; do
+            # Trim whitespace
+            pattern=$(echo "$pattern" | xargs)
+            if [ -n "$pattern" ]; then
+                BACKUP_EXCLUDE_PARAMS+=(--exclude "$pattern")
+            fi
+        done
+    fi
+    # From command line
+    if [ ${#CLI_EXCLUDES[@]} -gt 0 ]; then
+        for pattern in "${CLI_EXCLUDES[@]}"; do
+            BACKUP_EXCLUDE_PARAMS+=(--exclude "$pattern")
+        done
+    fi
+
+    if [ "$BACKUP_SOURCE_TYPE" == "dir" ]; then
+        if [ -z "$BACKUP_SOURCE_VALUE" ]; then
+            error_message "--source-value is required for dir source-type."
+        fi
+        banner "Performing backup of ${BACKUP_SOURCE_VALUE}..."
+        if [ ${#BACKUP_EXCLUDE_PARAMS[@]} -gt 0 ]; then
+            ${RESTIC_BASE_COMMAND} backup "${BACKUP_EXCLUDE_PARAMS[@]}" "${BACKUP_SOURCE_VALUE}"
+        else
+            ${RESTIC_BASE_COMMAND} backup "${BACKUP_SOURCE_VALUE}"
+        fi
+    elif [ "$BACKUP_SOURCE_TYPE" == "stdin" ]; then
+        if [ -z "$STDIN_FILENAME" ]; then
+            error_message "--stdin-filename is required for stdin source-type."
+        fi
+        banner "Performing backup from stdin (filename: ${STDIN_FILENAME})..."
+        # Excludes are not typically used with stdin, but restic allows them, so we pass them.
+        if [ ${#BACKUP_EXCLUDE_PARAMS[@]} -gt 0 ]; then
+            cat - | ${RESTIC_BASE_COMMAND} backup "${BACKUP_EXCLUDE_PARAMS[@]}" --stdin --stdin-filename "${STDIN_FILENAME}"
+        else
+            cat - | ${RESTIC_BASE_COMMAND} backup --stdin --stdin-filename "${STDIN_FILENAME}"
+        fi
+    else
+        error_message "Invalid backup source type: ${BACKUP_SOURCE_TYPE}"
+    fi
+}
+
 # Function to display usage
 usage() {
     echo ""
@@ -52,6 +101,7 @@ usage() {
     echo "  --source-type <type>      : Type of backup source (dir, stdin) for backup action"
     echo "  --source-value <value>    : Value for backup source (path for dir). Not used for stdin."
     echo "  --stdin-filename <name>   : Filename for stdin backup (required for stdin source-type)"
+    echo "  --exclude <pattern>       : Exclude a file or directory matching pattern. Can be specified multiple times."
     echo "  --help                    : Display this help message"
     echo ""
     echo "Examples:"
@@ -118,6 +168,7 @@ while [[ "$#" -gt 0 ]]; do
         --source-type) BACKUP_SOURCE_TYPE="$2"; shift ;;
         --source-value) BACKUP_SOURCE_VALUE="$2"; shift ;;
         --stdin-filename) STDIN_FILENAME="$2"; shift ;;
+        --exclude) CLI_EXCLUDES+=("$2"); shift ;;
         --help) usage; exit 0 ;;
         *) usage ;;
     esac
@@ -163,21 +214,7 @@ case "$ACTION" in
         if [ -z "$BACKUP_SOURCE_TYPE" ]; then # Only source-type is mandatory now
             error_message "--source-type is required for backup action."
         fi
-        banner "Performing backup..."
-        if [ "$BACKUP_SOURCE_TYPE" == "dir" ]; then
-            if [ -z "$BACKUP_SOURCE_VALUE" ]; then
-                error_message "--source-value is required for dir source-type."
-            fi
-            ${RESTIC_BASE_COMMAND} backup "${BACKUP_SOURCE_VALUE}"
-        elif [ "$BACKUP_SOURCE_TYPE" == "stdin" ]; then # New stdin source type
-            if [ -z "$STDIN_FILENAME" ]; then
-                error_message "--stdin-filename is required for stdin source-type."
-            fi
-            banner "Performing backup from stdin..."
-            cat - | ${RESTIC_BASE_COMMAND} backup --stdin --stdin-filename "${STDIN_FILENAME}"
-        else
-            error_message "Invalid backup source type: ${BACKUP_SOURCE_TYPE}"
-        fi
+        perform_backup
         ;;
     check)
         banner "Checking repository..."
@@ -275,19 +312,7 @@ case "$ACTION" in
         if [ -z "$BACKUP_SOURCE_TYPE" ]; then
             error_message "--source-type is required for backup action within backup-flow."
         fi
-        if [ "$BACKUP_SOURCE_TYPE" == "dir" ]; then
-            if [ -z "$BACKUP_SOURCE_VALUE" ]; then
-                error_message "--source-value is required for dir source-type within backup-flow."
-            fi
-            ${RESTIC_BASE_COMMAND} backup "${BACKUP_SOURCE_VALUE}"
-        elif [ "$BACKUP_SOURCE_TYPE" == "stdin" ]; then
-            if [ -z "$STDIN_FILENAME" ]; then
-                error_message "--stdin-filename is required for stdin source-type within backup-flow."
-            fi
-            cat - | ${RESTIC_BASE_COMMAND} backup --stdin --stdin-filename "${STDIN_FILENAME}"
-        else
-            error_message "Invalid backup source type: ${BACKUP_SOURCE_TYPE} for backup-flow."
-        fi
+        perform_backup
 
         # 3. Check repository for errors after backup
         banner "Step 3/8: Checking repository for errors after backup"
