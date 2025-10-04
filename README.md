@@ -1,156 +1,366 @@
 # Restic DO Script
 
-A Bash script wrapper for `restic` to simplify and automate common backup operations. This script provides a convenient way to manage your `restic` repositories with easy-to-use commands and a clear configuration file.
+A professional-grade Bash wrapper for [restic](https://restic.net/) that simplifies and automates backup operations with enterprise-level features including comprehensive logging, error handling, and Slack integration.
 
-## Features
+## 🚀 Features
 
--   **Simplified Commands**: Short and intuitive commands for common `restic` actions.
--   **Configuration via `.env`**: All settings are managed in a single `.env` file.
--   **Automated Backup Flow**: A `backup-flow` action that runs a full backup cycle, including checks and pruning.
--   **Flexible Backup Sources**: Supports backing up both directories and data from `stdin` (e.g., database dumps).
--   **Colored Output**: Enhanced readability with colored and timestamped log messages.
+- **🎯 Simplified Commands**: Intuitive commands for all restic operations
+- **⚙️ Environment Configuration**: Centralized configuration via `.env` files
+- **🔄 Automated Backup Flow**: Complete backup cycle with integrity checks and pruning
+- **📊 Flexible Source Types**: Support for directory and stdin backups (databases, etc.)
+- **🎨 Enhanced Output**: Colored logs with timestamps and professional formatting
+- **📱 Slack Integration**: Real-time notifications with detailed metadata
+- **📝 File Logging**: Optional persistent logging to files
+- **🛡️ Robust Error Handling**: Comprehensive validation and graceful error recovery
+- **🔍 Dependency Validation**: Automatic system dependency checking
+- **⚡ Signal Handling**: Graceful cleanup on interruption
+- **📋 Parameter Validation**: Extensive input validation and sanitization
 
-## Prerequisites
+## 📋 Prerequisites
 
--   [restic](https://restic.net/) must be installed and available in your system's `PATH`.
--   `bash` (Bourne-Again SHell).
+- **[restic](https://restic.net/)** - Must be installed and available in your system's PATH
+- **bash** - Version 4.0 or higher recommended
+- **curl** - Required for Slack notifications (optional)
 
-## Installation
+## 🔧 Installation
 
-1.  Clone this repository or download the `restic-do.sh` script.
-2.  Make the script executable:
-    ```bash
-    chmod +x restic-do.sh
-    ```
-3.  Create a `.env` file for your configuration. You can copy the existing `.env.distr` file if you have one, or create it from scratch based on the section below.
+1. **Clone or download** the repository:
+   ```bash
+   git clone <repository-url>
+   cd restic-do
+   ```
 
-## Configuration
+2. **Make executable**:
+   ```bash
+   chmod +x restic-do.sh
+   ```
 
-All configuration is done through the `.env` file. It's a good practice to create a `.env.example` file (with dummy values) in your repository to show what variables are needed.
+3. **Create configuration**:
+   ```bash
+   cp .env.distr .env
+   # Edit .env with your settings
+   ```
 
-### `.env` file variables
+## ⚙️ Configuration
 
-| Variable                  | Description                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `RESTIC_REPO`             | The path to your restic repository. Can be a local path or a remote one (e.g., `s3:bucket-name/repo`).     |
-| `RESTIC_PASSWORD`         | The password for your restic repository.                                                                |
-| `RESTIC_REPO_KEEP_LAST`   | Number of latest snapshots to keep.                                                                     |
-| `RESTIC_REPO_KEEP_DAILY`  | Number of daily snapshots to keep.                                                                      |
-| `RESTIC_REPO_KEEP_WEEKLY` | Number of weekly snapshots to keep.                                                                     |
-| `RESTIC_REPO_KEEP_MONTHLY`| Number of monthly snapshots to keep.                                                                    |
-| `RESTIC_REPO_KEEP_YEARLY` | Number of yearly snapshots to keep.                                                                     |
-| `BACKUP_SOURCE_VALUE`     | Default directory to back up. Can be overridden by the `--source-value` argument.                         |
-| `BACKUP_SOURCE_TYPE`      | Default backup source type (`dir` or `stdin`). Can be overridden by the `--source-type` argument.         |
+All configuration is managed through `.env` files. **Never commit real credentials to version control!**
 
-## Usage
+### Required Variables
 
-The script is executed with the following structure:
+| Variable | Description |
+|----------|-------------|
+| `RESTIC_REPO` | Repository path (local or remote, e.g., `/backup` or `s3:bucket/repo`) |
+| `RESTIC_PASSWORD` | Repository encryption password |
+
+### Retention Policy
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RESTIC_REPO_KEEP_LAST` | Number of latest snapshots to keep | 20 |
+| `RESTIC_REPO_KEEP_DAILY` | Number of daily snapshots to keep | 14 |
+| `RESTIC_REPO_KEEP_WEEKLY` | Number of weekly snapshots to keep | 8 |
+| `RESTIC_REPO_KEEP_MONTHLY` | Number of monthly snapshots to keep | 12 |
+| `RESTIC_REPO_KEEP_YEARLY` | Number of yearly snapshots to keep | 3 |
+
+### Backup Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `BACKUP_SOURCE_TYPE` | Default source type (`dir` or `stdin`) | `dir` |
+| `BACKUP_SOURCE_VALUE` | Default directory to backup | |
+| `BACKUP_EXCLUDE` | Comma-separated exclude patterns | |
+
+### Slack Integration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SLACK_SEND_NOTIFICATIONS` | Enable Slack notifications (`true`/`false`) | `false` |
+| `SLACK_HOOK` | Slack incoming webhook URL | |
+| `SLACK_CHANNEL` | Target Slack channel | |
+| `SLACK_USERNAME` | Bot username | `Restic Backup` |
+| `SLACK_LOG_EMOJI_DEFAULT` | Default emoji | `:bell:` |
+
+### S3 Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `S3_URL` | S3 endpoint URL |
+| `S3_BUCKET_NAME` | S3 bucket name |
+| `AWS_ACCESS_KEY_ID` | S3 access key |
+| `AWS_SECRET_ACCESS_KEY` | S3 secret key |
+| `AWS_DEFAULT_REGION` | S3 region |
+
+> **Note**: Construct `RESTIC_REPO` from S3 variables: `RESTIC_REPO="s3:${S3_URL}/${S3_BUCKET_NAME}"`
+
+## 🚀 Usage
+
+### Basic Syntax
 
 ```bash
-./restic-do.sh --action <action> --env-file /path/to/.env [options]
+./restic-do.sh --action <action> [options]
 ```
 
 ### Global Options
 
--   `--env-file <path>`: Path to the `.env` file. Defaults to `./.env` in the script's directory.
--   `--help`: Display the help message.
-
-## Making the Script Globally Accessible
-
-To use the `restic-do.sh` script from any directory on your system, you can move it to a directory within your system's `PATH`.
-
-1.  **Move the script**
-
-    Choose a directory from your `PATH` (like `/usr/local/bin`) and move the script there. You can rename it for easier typing.
-
-    ```bash
-    sudo mv /path/to/your/restic-do.sh /usr/local/bin/restic-do
-    ```
-
-2.  **Make it executable**
-
-    Ensure the script has execution permissions.
-
-    ```bash
-    sudo chmod +x /usr/local/bin/restic-do
-    ```
-
-3.  **Usage**
-
-    Now you can call the script from anywhere using `restic-do`.
-
-    **Important:** Since the script is no longer in the same directory as your configuration file, the default mechanism for finding the `.env` file will not work. You **must** always provide the absolute path to your `.env` file using the `--env-file` option.
-
-    ```bash
-    # Example: running a backup from any directory
-    restic-do --action backup --env-file /path/to/your/config/.env --source-value /path/to/your/data
-    ```
-
-## Actions
-
-Here are the available actions:
-
--   `init`: Initializes a new `restic` repository.
--   `unlock`: Unlocks the repository if it's locked.
--   `snapshots`: Lists all snapshots in the repository.
--   `backup`: Performs a backup.
-    -   `--source-type <dir|stdin>`: The type of source.
-    -   `--source-value <path>`: The path to the directory to back up (for `dir` type).
-    -   `--stdin-filename <name>`: The filename for the backup when using `stdin`.
--   `backup-flow`: Performs a full backup cycle: `check` -> `backup` -> `check` -> `forget` -> `cache.cleanup` -> `check` -> `snapshots` -> `stats`.
--   `check`: Checks the repository for errors.
--   `stats`: Shows repository statistics.
--   `stats.latest`: Shows statistics for the latest snapshot.
--   `cache.cleanup`: Cleans up the local cache.
--   `forget`: Forgets and prunes old snapshots according to the policy in `.env`.
--   `restore`: Restores a snapshot.
-    -   `--snapshot-id <id>`: The ID of the snapshot to restore.
-    -   `--target-dir <path>`: The directory where to restore the snapshot.
--   `restore.latest`: Restores the latest snapshot.
-    -   `--target-dir <path>`: The directory where to restore the snapshot.
--   `ls`: Lists files in a snapshot.
-    -   `--snapshot-id <id>`: The ID of the snapshot.
--   `find`: Finds files in all snapshots.
-    -   `--pattern <pattern>`: The pattern to search for.
--   `mount`: Mounts the repository using FUSE.
-    -   `--mount-dir <path>`: The directory where to mount the repository.
--   `diff`: Shows the difference between two snapshots.
-    -   `--snapshot-id1 <id>`: The first snapshot ID.
-    -   `--snapshot-id2 <id>`: The second snapshot ID.
-
-## Examples
-
-**List all snapshots:**
 ```bash
-./restic-do.sh --action snapshots --env-file ./repo-test/.env
+--env-file <path>     # Configuration file path (default: ./.env)
+--log-file <path>     # Enable file logging
+--version             # Show version information
+--help                # Display help message
 ```
 
-**Backup a directory:**
+## 📚 Actions
+
+### Repository Management
+
 ```bash
-./restic-do.sh --action backup --env-file ./configs/.env --source-type dir --source-value /path/to/data
+# Initialize new repository
+./restic-do.sh --action init --env-file ./config/.env
+
+# Check repository integrity
+./restic-do.sh --action check --env-file ./config/.env
+
+# Unlock locked repository
+./restic-do.sh --action unlock --env-file ./config/.env
+
+# Clean cache
+./restic-do.sh --action cache.cleanup --env-file ./config/.env
 ```
 
-**Backup a PostgreSQL database dump:**
+### Backup Operations
+
 ```bash
-pg_dump my_db | ./restic-do.sh --action backup --env-file ./configs/.env --source-type stdin --stdin-filename my_db.sql
+# Backup directory
+./restic-do.sh --action backup \
+  --env-file ./config/.env \
+  --source-type dir \
+  --source-value /home/user/documents \
+  --exclude "*.tmp" \
+  --exclude "cache/"
+
+# Backup database from stdin
+pg_dump mydb | ./restic-do.sh --action backup \
+  --env-file ./config/.env \
+  --source-type stdin \
+  --stdin-filename "mydb_$(date +%Y%m%d).sql"
+
+# Complete backup flow (recommended)
+./restic-do.sh --action backup-flow \
+  --env-file ./config/.env \
+  --source-value /data \
+  --log-file ./backup.log
 ```
 
-**Restore the latest snapshot:**
+### Snapshot Management
+
 ```bash
-./restic-do.sh --action restore.latest --env-file ./configs/.env --target-dir /tmp/restore
+# List snapshots
+./restic-do.sh --action snapshots --env-file ./config/.env
+
+# Forget old snapshots
+./restic-do.sh --action forget --env-file ./config/.env
+
+# Repository statistics
+./restic-do.sh --action stats --env-file ./config/.env
+
+# Latest snapshot statistics
+./restic-do.sh --action stats.latest --env-file ./config/.env
 ```
 
-**Run the full backup cycle:**
+### Restore Operations
+
 ```bash
-./restic-do.sh --action backup-flow --env-file ./configs/.env --source-value /path/to/data
+# Restore specific snapshot
+./restic-do.sh --action restore \
+  --env-file ./config/.env \
+  --snapshot-id abc123def \
+  --target-dir /tmp/restore
+
+# Restore latest snapshot
+./restic-do.sh --action restore.latest \
+  --env-file ./config/.env \
+  --target-dir /tmp/restore
 ```
 
-## Disclaimer
+### Browse and Search
 
-**This script is provided "as is", without warranty of any kind, express or implied.** The author assumes no responsibility for any data loss or other damages that may occur as a result of using this script.
+```bash
+# List files in snapshot
+./restic-do.sh --action ls \
+  --env-file ./config/.env \
+  --snapshot-id abc123def
 
-**You use this script at your own risk.** It is highly recommended to test the script and your backup/restore process thoroughly in a non-production environment before relying on it for critical data.
+# Find files across snapshots
+./restic-do.sh --action find \
+  --env-file ./config/.env \
+  --pattern "*.pdf"
 
-## License
+# Mount repository (requires FUSE)
+./restic-do.sh --action mount \
+  --env-file ./config/.env \
+  --mount-dir /mnt/backup
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+# Compare snapshots
+./restic-do.sh --action diff \
+  --env-file ./config/.env \
+  --snapshot-id1 abc123def \
+  --snapshot-id2 def456ghi
+```
+
+## 🔄 Backup Flow
+
+The `backup-flow` action performs a comprehensive 8-step backup process:
+
+1. **Pre-backup integrity check** - Verify repository health
+2. **Perform backup** - Execute the actual backup
+3. **Post-backup integrity check** - Verify backup success
+4. **Forget old snapshots** - Apply retention policy
+5. **Cache cleanup** - Remove unused cache data
+6. **Final integrity check** - Ensure repository consistency
+7. **List snapshots** - Show current repository state
+8. **Repository statistics** - Display storage usage
+
+## 🌍 Global Installation
+
+To use the script from any directory:
+
+```bash
+# Move to system PATH
+sudo mv restic-do.sh /usr/local/bin/restic-do
+sudo chmod +x /usr/local/bin/restic-do
+
+# Use with absolute paths to config files
+restic-do --action backup-flow --env-file /path/to/your/.env --source-value /data
+```
+
+## 🔐 Security Best Practices
+
+1. **Never commit credentials** to version control
+2. **Use appropriate file permissions** for `.env` files:
+   ```bash
+   chmod 600 .env
+   ```
+3. **Regularly rotate** backup passwords and access keys
+4. **Test restore procedures** regularly
+5. **Monitor backup notifications** for failures
+6. **Use strong, unique passwords** for repositories
+
+## 📊 Example Configurations
+
+### Local Backup
+
+```bash
+# .env for local backup
+RESTIC_REPO="/backup/restic-repo"
+RESTIC_PASSWORD="your-secure-password"
+BACKUP_SOURCE_VALUE="/home/user"
+BACKUP_EXCLUDE="*.log,*.tmp,cache/,node_modules/"
+SLACK_SEND_NOTIFICATIONS="true"
+SLACK_HOOK="https://hooks.slack.com/services/..."
+SLACK_CHANNEL="#backup-alerts"
+```
+
+### S3 Backup
+
+```bash
+# .env for S3 backup
+RESTIC_REPO="s3:s3.amazonaws.com/my-backup-bucket"
+RESTIC_PASSWORD="your-secure-password"
+AWS_ACCESS_KEY_ID="AKIA..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_DEFAULT_REGION="us-west-2"
+BACKUP_SOURCE_VALUE="/data"
+SLACK_SEND_NOTIFICATIONS="true"
+```
+
+### Database Backup Script
+
+```bash
+#!/bin/bash
+# Daily database backup script
+
+# Set environment
+export RESTIC_CONFIG="/etc/restic/.env"
+export LOG_DIR="/var/log/backup"
+
+# Create log directory
+mkdir -p "$LOG_DIR"
+
+# Backup PostgreSQL
+pg_dump -h localhost -U postgres mydb | \
+  /usr/local/bin/restic-do \
+    --action backup \
+    --env-file "$RESTIC_CONFIG" \
+    --source-type stdin \
+    --stdin-filename "mydb_$(date +%Y%m%d_%H%M%S).sql" \
+    --log-file "$LOG_DIR/postgres-backup.log"
+
+# Backup MySQL
+mysqldump -u root -p mydb | \
+  /usr/local/bin/restic-do \
+    --action backup \
+    --env-file "$RESTIC_CONFIG" \
+    --source-type stdin \
+    --stdin-filename "mysql_$(date +%Y%m%d_%H%M%S).sql" \
+    --log-file "$LOG_DIR/mysql-backup.log"
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Permission denied**: Ensure script is executable and paths are accessible
+2. **Environment file not found**: Check file path and permissions
+3. **Restic not found**: Install restic and ensure it's in PATH
+4. **Repository locked**: Use `--action unlock`
+5. **S3 authentication**: Verify AWS credentials and permissions
+
+### Debug Mode
+
+For detailed troubleshooting, you can modify the script to enable bash debugging:
+
+```bash
+# Add to top of script temporarily
+set -x  # Enable debug output
+```
+
+### Log Analysis
+
+```bash
+# Monitor real-time logs
+tail -f /path/to/backup.log
+
+# Search for errors
+grep -i error /path/to/backup.log
+
+# Check Slack notifications
+grep "Slack notification" /path/to/backup.log
+```
+
+## 🔄 Version History
+
+- **v1.0.0** - Complete rewrite with professional features
+- **v0.0.2** - Added Slack notifications  
+- **v0.0.1** - Initial release
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Follow the existing code style
+4. Add tests for new features
+5. Submit a pull request
+
+## ⚠️ Disclaimer
+
+**This software is provided "as is" without warranty of any kind.** Always test your backup and restore procedures in a non-production environment before relying on them for critical data.
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+**💡 Pro Tip**: Set up automated daily backups using cron with the `backup-flow` action for a complete, hands-off backup solution!
