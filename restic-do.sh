@@ -21,6 +21,51 @@ DELIMITER_COLOR="\e[01;38;05;214m"
 COLOR_RESET="\033[0m"
 ERROR_COLOR="\033[0;31m" # Red color
 
+# Function to display usage
+usage() {
+    echo ""
+    echo "Usage: $0 --action <action> [options]"
+    echo ""
+    echo "Actions: snapshots, backup, check, stats, stats.latest, cache.cleanup, forget, init, unlock, restore, ls, find, mount, diff, backup-flow"
+    echo ""
+    echo "Options:"
+    echo "  --env-file <path>         : Path to the .env file (default: ./.env in script's directory)"
+    echo "  --snapshot-id <id>        : Snapshot ID for restore, ls, diff"
+    echo "  --target-dir <path>       : Target directory for restore"
+    echo "  --pattern <pattern>       : Pattern for find"
+    echo "  --mount-dir <path>        : Mount directory for mount"
+    echo "  --snapshot-id1 <id>       : First snapshot ID for diff"
+    echo "  --snapshot-id2 <id>       : Second snapshot ID for diff"
+    echo "  --source-type <type>      : Type of backup source (dir, stdin) for backup action"
+    echo "  --source-value <value>    : Value for backup source (path for dir). Not used for stdin."
+    echo "  --stdin-filename <name>   : Filename for stdin backup (required for stdin source-type)"
+    echo "  --exclude <pattern>       : Exclude a file or directory matching pattern. Can be specified multiple times."
+    echo "  --help                    : Display this help message"
+    echo ""
+    echo "Examples:"
+    echo "  # List all snapshots in the repository"
+    echo "  $0 --action snapshots --env-file ./repo-test/.env"
+    echo ""
+    echo "  # Backup a directory"
+    echo "  $0 --action backup --env-file ./path/to/configs/.env --source-type dir --source-value /path/to/backup/data"
+    echo ""
+    echo "  # Backup data from stdin (e.g., pg_dump output)"
+    echo "  pg_dump my_db | $0 --action backup --env-file ./path/to/configs/.env --source-type stdin --stdin-filename my_db.sql"
+    echo ""
+    echo "  # Restore the latest snapshot to a directory"
+    echo "  $0 --action restore.latest --env-file ./path/to/configs/.env --target-dir /tmp/restore"
+    echo ""
+    echo "  # Restore a specific snapshot by ID"
+    echo "  $0 --action restore --env-file ./path/to/configs/.env --snapshot-id <snapshot_id> --target-dir /tmp/restore"
+    echo ""
+    echo "  # Mount the repository (requires FUSE)"
+    echo "  $0 --action mount --env-file ./path/to/configs/.env --mount-dir /mnt/restic_repo"
+    echo ""
+    echo "  # Perform a full backup cycle with checks and pruning"
+    echo "  $0 --action backup-flow --env-file ./path/to/configs/.env --source-value /path/to/backup/data"
+    exit 1
+}
+
 # Function to print a colored banner message
 banner() {
     local message="$1"
@@ -34,6 +79,31 @@ error_message() {
     send_slack_notification "Error: $message" ":x:"
     printf "\n${ERROR_COLOR}Error: ${message}${COLOR_RESET}\n" >&2 # Print to stderr
     exit 1
+}
+
+# Function to get meta information for Slack notifications
+get_meta_info() {
+    local meta="\n"
+    meta+="> *Repository*: ${RESTIC_REPO}\n"
+    meta+="> *Action*: ${ACTION}\n"
+
+    if [ -n "${BACKUP_SOURCE_TYPE-}" ]; then
+        meta+="> *Source Type*: ${BACKUP_SOURCE_TYPE}\n"
+    fi
+    if [ -n "${BACKUP_SOURCE_VALUE-}" ]; then
+        meta+="> *Source Value*: ${BACKUP_SOURCE_VALUE}\n"
+    fi
+    if [ -n "${STDIN_FILENAME-}" ]; then
+        meta+="> *Stdin Filename*: ${STDIN_FILENAME}\n"
+    fi
+    if [ -n "${BACKUP_EXCLUDE-}" ]; then
+        meta+="> *Excludes (.env)*: ${BACKUP_EXCLUDE}\n"
+    fi
+    if [ ${#CLI_EXCLUDES[@]} -gt 0 ]; then
+        meta+="> *Excludes (CLI)*: ${CLI_EXCLUDES[*]}\n"
+    fi
+
+    echo -e "$meta"
 }
 
 # Function to send a Slack notification
@@ -52,13 +122,23 @@ send_slack_notification() {
     local emoji="${2:-${SLACK_LOG_EMOJI_DEFAULT:-:bell:}}"
     local channel="${SLACK_CHANNEL}"
 
-    # Escape special characters for JSON
-    message=$(echo "$message" | sed -e 's/"/\\"/g' -e "s/'/\\'/g" -e 's/`/\\`/g')
+    # Add meta info
+    local meta_info
+    meta_info=$(get_meta_info)
+    message+="${meta_info}"
+
+    # Escape special characters for JSON in a portable way
+    local escaped_message=""
+    while IFS= read -r line; do
+        escaped_line=$(echo "$line" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e "s/'/\\'/g" -e 's/`/\\`/g')
+        escaped_message+="${escaped_line}\\n"
+    done <<< "$message"
+    message=$escaped_message
 
     local json_payload
     json_payload=$(printf '{"channel": "%s", "username": "Restic Backup", "text": "%s", "icon_emoji": "%s"}' "$channel" "$message" "$emoji")
 
-    # Send notification in the background to avoid blocking the script
+    # Send notification in the background
     curl -s -X POST -H 'Content-type: application/json' --data "${json_payload}" "${SLACK_HOOK}" > /dev/null 2>&1 &
 }
 
@@ -110,51 +190,6 @@ perform_backup() {
     fi
 
     send_slack_notification "Backup completed successfully!" ":white_check_mark:"
-}
-
-# Function to display usage
-usage() {
-    echo ""
-    echo "Usage: $0 --action <action> [options]"
-    echo ""
-    echo "Actions: snapshots, backup, check, stats, stats.latest, cache.cleanup, forget, init, unlock, restore, ls, find, mount, diff, backup-flow"
-    echo ""
-    echo "Options:"
-    echo "  --env-file <path>         : Path to the .env file (default: ./.env in script's directory)"
-    echo "  --snapshot-id <id>        : Snapshot ID for restore, ls, diff"
-    echo "  --target-dir <path>       : Target directory for restore"
-    echo "  --pattern <pattern>       : Pattern for find"
-    echo "  --mount-dir <path>        : Mount directory for mount"
-    echo "  --snapshot-id1 <id>       : First snapshot ID for diff"
-    echo "  --snapshot-id2 <id>       : Second snapshot ID for diff"
-    echo "  --source-type <type>      : Type of backup source (dir, stdin) for backup action"
-    echo "  --source-value <value>    : Value for backup source (path for dir). Not used for stdin."
-    echo "  --stdin-filename <name>   : Filename for stdin backup (required for stdin source-type)"
-    echo "  --exclude <pattern>       : Exclude a file or directory matching pattern. Can be specified multiple times."
-    echo "  --help                    : Display this help message"
-    echo ""
-    echo "Examples:"
-    echo "  # List all snapshots in the repository"
-    echo "  $0 --action snapshots --env-file ./repo-test/.env"
-    echo ""
-    echo "  # Backup a directory"
-    echo "  $0 --action backup --env-file ./path/to/configs/.env --source-type dir --source-value /path/to/backup/data"
-    echo ""
-    echo "  # Backup data from stdin (e.g., pg_dump output)"
-    echo "  pg_dump my_db | $0 --action backup --env-file ./path/to/configs/.env --source-type stdin --stdin-filename my_db.sql"
-    echo ""
-    echo "  # Restore the latest snapshot to a directory"
-    echo "  $0 --action restore.latest --env-file ./path/to/configs/.env --target-dir /tmp/restore"
-    echo ""
-    echo "  # Restore a specific snapshot by ID"
-    echo "  $0 --action restore --env-file ./path/to/configs/.env --snapshot-id <snapshot_id> --target-dir /tmp/restore"
-    echo ""
-    echo "  # Mount the repository (requires FUSE)"
-    echo "  $0 --action mount --env-file ./path/to/configs/.env --mount-dir /mnt/restic_repo"
-    echo ""
-    echo "  # Perform a full backup cycle with checks and pruning"
-    echo "  $0 --action backup-flow --env-file ./path/to/configs/.env --source-value /path/to/backup/data"
-    exit 1
 }
 
 # Pre-parse arguments to find --env-file
