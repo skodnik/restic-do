@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Restic DO Script - Professional Bash Wrapper for Restic Backup Tool
-# Version: 1.0.0
+# Version: 1.0.1
 # License: MIT
 
 set -euo pipefail
@@ -596,6 +596,24 @@ load_environment() {
     log "SUCCESS" "Environment loaded successfully"
 }
 
+# Function to parse early arguments (version and help) before environment loading
+early_parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --version)
+                show_version
+                exit 0
+                ;;
+            --help)
+                usage
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+}
+
 # Function to parse command line arguments
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
@@ -665,13 +683,6 @@ parse_arguments() {
                 [[ -n "${2:-}" ]] || error_exit "Missing value for --exclude"
                 CLI_EXCLUDES+=("$2")
                 shift 2
-                ;;
-            --version)
-                show_version
-                exit 0
-                ;;
-            --help)
-                usage
                 ;;
             *)
                 error_exit "Unknown argument: $1"
@@ -910,6 +921,9 @@ trap 'error_exit "Script interrupted by user" 130' INT TERM
 
 # Main execution starts here
 main() {
+    # Early parse for --version and --help (before loading environment)
+    early_parse_arguments "$@"
+
     # Pre-parse to find --env-file before loading environment
     pre_parse_env_file "$@"
 
