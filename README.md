@@ -74,7 +74,8 @@ All configuration is managed through `.env` files. **Never commit real credentia
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SLACK_SEND_NOTIFICATIONS` | Enable Slack notifications (`true`/`false`) | `false` |
+| `SLACK_SEND_NOTIFICATIONS_ON_SUCCESS` | Enable Slack notifications for successful operations (`true`/`false`) | `false` |
+| `SLACK_SEND_NOTIFICATIONS_ON_ERROR` | Enable Slack notifications for errors and failures (`true`/`false`) | `false` |
 | `SLACK_HOOK` | Slack incoming webhook URL | |
 | `SLACK_CHANNEL` | Target Slack channel | |
 | `SLACK_USERNAME` | Bot username | `Restic Backup` |
@@ -255,7 +256,8 @@ RESTIC_REPO="/backup/restic-repo"
 RESTIC_PASSWORD="your-secure-password"
 BACKUP_SOURCE_VALUE="/home/user"
 BACKUP_EXCLUDE="*.log,*.tmp,cache/,node_modules/"
-SLACK_SEND_NOTIFICATIONS="true"
+SLACK_SEND_NOTIFICATIONS_ON_SUCCESS="true"
+SLACK_SEND_NOTIFICATIONS_ON_ERROR="true"
 SLACK_HOOK="https://hooks.slack.com/services/..."
 SLACK_CHANNEL="#backup-alerts"
 ```
@@ -270,7 +272,8 @@ AWS_ACCESS_KEY_ID="AKIA..."
 AWS_SECRET_ACCESS_KEY="..."
 AWS_DEFAULT_REGION="us-west-2"
 BACKUP_SOURCE_VALUE="/data"
-SLACK_SEND_NOTIFICATIONS="true"
+SLACK_SEND_NOTIFICATIONS_ON_SUCCESS="true"
+SLACK_SEND_NOTIFICATIONS_ON_ERROR="true"
 ```
 
 ### Database Backup Script
@@ -339,6 +342,8 @@ grep "Slack notification" /path/to/backup.log
 
 ## 🔄 Version History
 
+- **v1.1.0** - Enhanced Slack notifications: separate controls for success and error notifications
+- **v1.0.3** - Small fixes
 - **v1.0.2** - Small fixes
 - **v1.0.1** - Added support for reading version and help without arguments
 - **v1.0.0** - Complete rewrite with features

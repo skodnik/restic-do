@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Restic DO Script - Bash Wrapper for Restic Backup Tool
-# Version: 1.0.3
+# Version: 1.1.0
 # License: MIT
 # Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.0.3"
+readonly SCRIPT_VERSION="1.1.0"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -307,7 +307,7 @@ error_exit() {
     log "ERROR" "$message"
 
     # Send Slack notification in background if available and configured
-    if [[ "${SLACK_SEND_NOTIFICATIONS:-false}" == "true" && -n "${SLACK_HOOK:-}" ]]; then
+    if should_send_slack_notification "error" && [[ -n "${SLACK_HOOK:-}" ]]; then
         (
             local escaped_message
             escaped_message="$(json_escape "❌ Error: $message")"
@@ -368,10 +368,33 @@ get_meta_info() {
     printf '%s' "$meta"
 }
 
+# Function to check if Slack notifications should be sent
+should_send_slack_notification() {
+    local notification_type="${1:-success}" # success or error
+    
+    case "$notification_type" in
+        "success")
+            [[ "${SLACK_SEND_NOTIFICATIONS_ON_SUCCESS:-false}" == "true" ]]
+            ;;
+        "error")
+            [[ "${SLACK_SEND_NOTIFICATIONS_ON_ERROR:-false}" == "true" ]]
+            ;;
+        *)
+            # For backward compatibility, check both flags
+            [[ "${SLACK_SEND_NOTIFICATIONS_ON_SUCCESS:-false}" == "true" ]] || \
+            [[ "${SLACK_SEND_NOTIFICATIONS_ON_ERROR:-false}" == "true" ]]
+            ;;
+    esac
+}
+
 # Function to send Slack notification
 send_slack_notification() {
+    local message="$1"
+    local emoji="${2:-${SLACK_LOG_EMOJI_DEFAULT:-:bell:}}"
+    local notification_type="${3:-success}" # success or error
+    
     # Early return if notifications disabled or dependencies missing
-    if [[ "${SLACK_SEND_NOTIFICATIONS:-false}" != "true" ]]; then
+    if ! should_send_slack_notification "$notification_type"; then
         return 0
     fi
 
@@ -527,7 +550,7 @@ perform_backup() {
     esac
 
     log "SUCCESS" "Backup completed successfully"
-    send_slack_notification "Backup completed successfully!" ":white_check_mark:"
+    send_slack_notification "Backup completed successfully!" ":white_check_mark:" "success"
 }
 
 # Function to safely parse arguments looking for --env-file
@@ -567,7 +590,8 @@ load_environment() {
 
     # Set defaults for optional variables
     BACKUP_SOURCE_TYPE="${BACKUP_SOURCE_TYPE:-dir}"
-    SLACK_SEND_NOTIFICATIONS="${SLACK_SEND_NOTIFICATIONS:-false}"
+    SLACK_SEND_NOTIFICATIONS_ON_SUCCESS="${SLACK_SEND_NOTIFICATIONS_ON_SUCCESS:-false}"
+    SLACK_SEND_NOTIFICATIONS_ON_ERROR="${SLACK_SEND_NOTIFICATIONS_ON_ERROR:-false}"
     SLACK_LOG_EMOJI_DEFAULT="${SLACK_LOG_EMOJI_DEFAULT:-:bell:}"
     SLACK_USERNAME="${SLACK_USERNAME:-Restic Backup}"
 
@@ -894,6 +918,7 @@ execute_backup_flow() {
 
     banner "Complete backup flow finished successfully!"
     log "SUCCESS" "All backup flow steps completed successfully"
+    send_slack_notification "Complete backup flow finished successfully! All 8 steps completed." ":rocket:" "success"
 }
 
 # Cleanup function for graceful exit
@@ -902,7 +927,7 @@ cleanup() {
 
     if [[ $exit_code -ne 0 ]]; then
         log "ERROR" "Script exited with error code: $exit_code"
-        if [[ "${SLACK_SEND_NOTIFICATIONS:-false}" == "true" ]]; then
+        if should_send_slack_notification "error" && [[ -n "${SLACK_HOOK:-}" ]]; then
             # Send notification in background without additional logging
             (
                 timeout 10 curl -s -X POST \
