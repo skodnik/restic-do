@@ -371,7 +371,7 @@ get_meta_info() {
 # Function to check if Slack notifications should be sent
 should_send_slack_notification() {
     local notification_type="${1:-success}" # success or error
-    
+
     case "$notification_type" in
         "success")
             [[ "${SLACK_SEND_NOTIFICATIONS_ON_SUCCESS:-false}" == "true" ]]
@@ -392,7 +392,7 @@ send_slack_notification() {
     local message="$1"
     local emoji="${2:-${SLACK_LOG_EMOJI_DEFAULT:-:bell:}}"
     local notification_type="${3:-success}" # success or error
-    
+
     # Early return if notifications disabled or dependencies missing
     if ! should_send_slack_notification "$notification_type"; then
         return 0
@@ -918,7 +918,6 @@ execute_backup_flow() {
 
     banner "Complete backup flow finished successfully!"
     log "SUCCESS" "All backup flow steps completed successfully"
-    send_slack_notification "Complete backup flow finished successfully! All 8 steps completed." ":rocket:" "success"
 }
 
 # Cleanup function for graceful exit
