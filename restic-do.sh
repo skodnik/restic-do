@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Restic DO Script - Bash Wrapper for Restic Backup Tool
-# Version: 1.0.2
+# Version: 1.0.3
 # License: MIT
 # Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.0.2"
+readonly SCRIPT_VERSION="1.0.3"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -352,7 +352,7 @@ get_meta_info() {
 > *Excludes (.env)*: \`${BACKUP_EXCLUDE}\`"
     fi
 
-    if [[ ${#CLI_EXCLUDES[@]:-0} -gt 0 ]]; then
+    if [[ ${#CLI_EXCLUDES[@]} -gt 0 ]]; then
         local excludes_str=""
         local i
         for ((i=0; i<${#CLI_EXCLUDES[@]}; i++)); do
@@ -475,7 +475,7 @@ build_exclude_params() {
     fi
 
     # Add excludes from command line (check if array exists first)
-    if [[ ${#CLI_EXCLUDES[@]:-0} -gt 0 ]]; then
+    if [[ ${#CLI_EXCLUDES[@]} -gt 0 ]]; then
         local i
         for ((i=0; i<${#CLI_EXCLUDES[@]}; i++)); do
             exclude_params+=("--exclude" "${CLI_EXCLUDES[$i]}")
@@ -507,7 +507,7 @@ perform_backup() {
             log "INFO" "Starting directory backup with ${#exclude_params[@]} exclude rules"
 
             # Execute backup with proper quoting and error handling
-            if [[ ${#exclude_params[@]:-0} -gt 0 ]]; then
+            if [[ ${#exclude_params[@]} -gt 0 ]]; then
                 restic --repo "$RESTIC_REPO" backup "${exclude_params[@]}" "$BACKUP_SOURCE_VALUE"
             else
                 restic --repo "$RESTIC_REPO" backup "$BACKUP_SOURCE_VALUE"
@@ -518,7 +518,7 @@ perform_backup() {
             log "INFO" "Starting stdin backup"
 
             # Read from stdin and backup
-            if [[ ${#exclude_params[@]:-0} -gt 0 ]]; then
+            if [[ ${#exclude_params[@]} -gt 0 ]]; then
                 restic --repo "$RESTIC_REPO" backup "${exclude_params[@]}" --stdin --stdin-filename "$STDIN_FILENAME"
             else
                 restic --repo "$RESTIC_REPO" backup --stdin --stdin-filename "$STDIN_FILENAME"
