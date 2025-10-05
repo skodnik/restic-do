@@ -342,6 +342,7 @@ grep "Slack notification" /path/to/backup.log
 
 ## 🔄 Version History
 
+- **v1.1.1** - Small fixes
 - **v1.1.0** - Enhanced Slack notifications: separate controls for success and error notifications
 - **v1.0.3** - Small fixes
 - **v1.0.2** - Small fixes
