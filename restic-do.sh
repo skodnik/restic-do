@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Restic DO Script - Bash Wrapper for Restic Backup Tool
-# Version: 1.1.0
+# Version: 1.1.1
 # License: MIT
 # Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.1.0"
+readonly SCRIPT_VERSION="1.1.1"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
