@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Restic DO Script - Bash Wrapper for Restic Backup Tool
-# Version: 1.1.1
+# Version: 1.1.2
 # License: MIT
 # Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.1.1"
+readonly SCRIPT_VERSION="1.1.2"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -308,15 +308,7 @@ error_exit() {
 
     # Send Slack notification in background if available and configured
     if should_send_slack_notification "error" && [[ -n "${SLACK_HOOK:-}" ]]; then
-        (
-            local escaped_message
-            escaped_message="$(json_escape "❌ Error: $message")"
-            timeout 10 curl -s -X POST \
-                -H 'Content-type: application/json' \
-                --data "$(printf '{"channel": "%s", "username": "%s", "text": "%s", "icon_emoji": ":x:"}' \
-                    "${SLACK_CHANNEL:-#general}" "${SLACK_USERNAME:-Restic Backup}" "$escaped_message")" \
-                "${SLACK_HOOK}" >/dev/null 2>&1 || true
-        ) &
+        send_slack_notification "❌ Error: $message" ":x:" "error"
     fi
 
     exit "$exit_code"
@@ -927,14 +919,8 @@ cleanup() {
     if [[ $exit_code -ne 0 ]]; then
         log "ERROR" "Script exited with error code: $exit_code"
         if should_send_slack_notification "error" && [[ -n "${SLACK_HOOK:-}" ]]; then
-            # Send notification in background without additional logging
-            (
-                timeout 10 curl -s -X POST \
-                    -H 'Content-type: application/json' \
-                    --data "$(printf '{"channel": "%s", "username": "%s", "text": "Script failed with exit code: %s", "icon_emoji": ":x:"}' \
-                        "${SLACK_CHANNEL:-#general}" "${SLACK_USERNAME:-Restic Backup}" "$exit_code")" \
-                    "${SLACK_HOOK}" >/dev/null 2>&1 || true
-            ) &
+            # Send notification using the enhanced function with meta info
+            send_slack_notification "💥 Script failed with exit code: $exit_code" ":x:" "error"
         fi
     fi
 

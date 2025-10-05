@@ -9,7 +9,7 @@ A Bash wrapper for [restic](https://restic.net/) that simplifies and automates b
 - **🔄 Automated Backup Flow**: Complete backup cycle with integrity checks and pruning
 - **📊 Flexible Source Types**: Support for directory and stdin backups (databases, etc.)
 - **🎨 Enhanced Output**: Colored logs with timestamps and formatting
-- **📱 Slack Integration**: Real-time notifications with detailed metadata
+- **📱 Slack Integration**: Separate notifications for success/error with detailed metadata (repository, action, parameters)
 - **📝 File Logging**: Optional persistent logging to files
 - **🛡️ Robust Error Handling**: Comprehensive validation and graceful error recovery
 - **🔍 Dependency Validation**: Automatic system dependency checking
@@ -342,6 +342,7 @@ grep "Slack notification" /path/to/backup.log
 
 ## 🔄 Version History
 
+- **v1.1.2** - Enhanced error notifications: added repository info and parameters to error messages
 - **v1.1.1** - Small fixes
 - **v1.1.0** - Enhanced Slack notifications: separate controls for success and error notifications
 - **v1.0.3** - Small fixes
