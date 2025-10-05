@@ -1,6 +1,6 @@
 # Restic DO Script
 
-A professional-grade Bash wrapper for [restic](https://restic.net/) that simplifies and automates backup operations with enterprise-level features including comprehensive logging, error handling, and Slack integration.
+A Bash wrapper for [restic](https://restic.net/) that simplifies and automates backup operations with enterprise-level features including comprehensive logging, error handling, and Slack integration.
 
 ## 🚀 Features
 
@@ -8,7 +8,7 @@ A professional-grade Bash wrapper for [restic](https://restic.net/) that simplif
 - **⚙️ Environment Configuration**: Centralized configuration via `.env` files
 - **🔄 Automated Backup Flow**: Complete backup cycle with integrity checks and pruning
 - **📊 Flexible Source Types**: Support for directory and stdin backups (databases, etc.)
-- **🎨 Enhanced Output**: Colored logs with timestamps and professional formatting
+- **🎨 Enhanced Output**: Colored logs with timestamps and formatting
 - **📱 Slack Integration**: Real-time notifications with detailed metadata
 - **📝 File Logging**: Optional persistent logging to files
 - **🛡️ Robust Error Handling**: Comprehensive validation and graceful error recovery
@@ -339,8 +339,10 @@ grep "Slack notification" /path/to/backup.log
 
 ## 🔄 Version History
 
-- **v1.0.0** - Complete rewrite with professional features
-- **v0.0.2** - Added Slack notifications  
+- **v1.0.2** - Small fixes
+- **v1.0.1** - Added support for reading version and help without arguments
+- **v1.0.0** - Complete rewrite with features
+- **v0.0.2** - Added Slack notifications
 - **v0.0.1** - Initial release
 
 ## 🤝 Contributing

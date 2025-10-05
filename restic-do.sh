@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# Restic DO Script - Professional Bash Wrapper for Restic Backup Tool
-# Version: 1.0.1
+# Restic DO Script - Bash Wrapper for Restic Backup Tool
+# Version: 1.0.2
 # License: MIT
+# Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="1.0.2"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -74,8 +75,9 @@ log() {
 # Function to display version information
 show_version() {
     echo "$SCRIPT_NAME version $SCRIPT_VERSION"
-    echo "A professional Bash wrapper for restic backup tool"
+    echo "A Bash wrapper for restic backup tool"
     echo "License: MIT"
+    echo "Author: Evgeny Vlasov"
 }
 
 # Function to display usage
