@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Restic DO Script - Bash Wrapper for Restic Backup Tool
-# Version: 1.1.2
+# Version: 1.1.3
 # License: MIT
 # Author: Evgeny Vlasov
 
 set -euo pipefail
 
 # Script constants
-readonly SCRIPT_VERSION="1.1.2"
+readonly SCRIPT_VERSION="1.1.3"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -93,6 +93,7 @@ ACTIONS:
   check         Check repository integrity
   stats         Show repository statistics (raw data mode)
   stats.latest  Show statistics for the latest snapshot
+  snapshot.delete Delete a specific snapshot by its ID
   cache.cleanup Clean up local cache
   forget        Forget and prune old snapshots
   init          Initialize a new repository
@@ -722,6 +723,9 @@ validate_action_params() {
         "ls")
             [[ -n "$SNAPSHOT_ID" ]] || error_exit "--snapshot-id is required for ls action"
             ;;
+        "snapshot.delete")
+            [[ -n "$SNAPSHOT_ID" ]] || error_exit "--snapshot-id is required for snapshot.delete action"
+            ;;
         "find")
             [[ -n "$PATTERN" ]] || error_exit "--pattern is required for find action"
             ;;
@@ -782,6 +786,11 @@ execute_action() {
         "stats.latest")
             banner "Latest snapshot statistics"
             restic --repo "$RESTIC_REPO" stats latest --mode restore-size
+            ;;
+        "snapshot.delete")
+            banner "Deleting snapshot $SNAPSHOT_ID"
+            restic --repo "$RESTIC_REPO" forget "$SNAPSHOT_ID" --prune
+            log "SUCCESS" "Snapshot deleted successfully"
             ;;
         "cache.cleanup")
             banner "Cleaning repository cache"

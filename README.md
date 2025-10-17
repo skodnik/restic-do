@@ -158,6 +158,9 @@ pg_dump mydb | ./restic-do.sh --action backup \
 # List snapshots
 ./restic-do.sh --action snapshots --env-file ./config/.env
 
+# Delete a specific snapshot by its ID
+./restic-do.sh --action snapshot.delete --snapshot-id <SNAPSHOT_ID> --env-file ./config/.env
+
 # Forget old snapshots
 ./restic-do.sh --action forget --env-file ./config/.env
 
@@ -342,6 +345,7 @@ grep "Slack notification" /path/to/backup.log
 
 ## 🔄 Version History
 
+- **v1.1.3** - Added snapshot.delete action
 - **v1.1.2** - Enhanced error notifications: added repository info and parameters to error messages
 - **v1.1.1** - Small fixes
 - **v1.1.0** - Enhanced Slack notifications: separate controls for success and error notifications
